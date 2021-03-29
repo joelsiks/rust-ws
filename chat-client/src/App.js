@@ -1,25 +1,24 @@
-import logo from './logo.svg';
-import './App.css';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+import React from "react";
+import {
+    BrowserRouter as Router,
+    Switch,
+    Route,
+} from "react-router-dom";
+
+import LoginView from './components/LoginView.js';
+import ChatView from './components/ChatView';
+
+import './css/App.css';
+import './css/bootstrap.min.css';
+
+export default function App() {
+    return (
+        <Router>
+            <Switch>
+                <Route path="/chat" render={(props) => <ChatView {...props}/>} />
+                <Route path="/" render={(props) => <LoginView {...props}/>} />
+            </Switch>
+        </Router>
+    );
 }
-
-export default App;

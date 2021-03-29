@@ -1,0 +1,27 @@
+
+# client specific
+
+# dependencies
+chat-client/node_modules
+chat-client/.pnp
+chat-client.pnp.js
+
+# testing
+chat-client/coverage
+
+# production
+chat-client/build
+
+# misc
+chat-client.DS_Store
+chat-client.env.local
+chat-client.env.development.local
+chat-client.env.test.local
+chat-client.env.production.local
+
+chat-clientnpm-debug.log*
+chat-clientyarn-debug.log*
+chat-clientyarn-error.log*
+
+# server specific
+server/target

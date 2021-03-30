@@ -18,31 +18,37 @@ class LoginView extends Component {
             redirectToChatView: false,
         };
 
+        this.handleUsernameKeyDown = this.handleUsernameKeyDown.bind(this);
         this.handleUsernameChange = this.handleUsernameChange.bind(this);
         this.handleLogin = this.handleLogin.bind(this);
     }
 
+    handleUsernameKeyDown(event) {
+        if (event.key === "Enter") {
+            this.handleLogin(event);
+        }
+    }
+
     handleUsernameChange(event) {
-        this.setState({username: event.target.value});
+        this.setState({ username: event.target.value });
     }
 
     handleLogin(event) {
         event.preventDefault();
 
-        if(this.state.username === "" || this.state.username.length > USERNAME_MAX_LENGTH) {
+        // TODO: Add more invalid names?
+        if (this.state.username === "" || this.state.username.length > USERNAME_MAX_LENGTH) {
             // TODO: Handle invalid username.
             console.log("Invalid username: " + this.state.username);
         } else {
-            console.log("Valid username: " + this.state.username);
-
             // Set redirect status to true to redirect to the Chat View.
-            this.setState({redirectToChatView: true});
+            this.setState({ redirectToChatView: true });
         }
     }
 
     render() {
-        if(this.state.redirectToChatView) {
-            return <Redirect to={{pathname: CHAT_REDIRECT_ROUTE, state: {username: this.state.username}}} />
+        if (this.state.redirectToChatView) {
+            return <Redirect to={{ pathname: CHAT_REDIRECT_ROUTE, state: { username: this.state.username } }} />
         }
 
         return (
@@ -58,7 +64,7 @@ class LoginView extends Component {
                                     <hr />
                                     <h6 className="card-subtitle mb-2 text-muted">Choose a username to enter the chatroom.</h6>
 
-                                    <input id="username-input" className="form-control" type="text" placeholder="Username" aria-label="Visible to other users in the chatroom." value={this.state.username} onChange={this.handleUsernameChange}></input>
+                                    <input autoFocus id="username-input" className="form-control" type="text" placeholder="Username" aria-label="Visible to other users in the chatroom." value={this.state.username} onChange={this.handleUsernameChange} onKeyDown={this.handleUsernameKeyDown} />
                                     <button type="button" className="btn btn-primary" onClick={this.handleLogin}>Enter the chatroom</button>
                                 </div>
                             </div>

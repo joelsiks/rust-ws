@@ -2,16 +2,6 @@
 /* Roboto Mono Font */
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
 
-#navbar-username {
-    font-size: 18px;
-    color: grey;
-
-    margin-bottom: 0px;
-
-    padding-top: 5px;
-    padding-right: 10px;
-}
-
 #message-form {
     background-color: #F8F9FA;
     position: fixed;
@@ -52,4 +42,9 @@
 .message {
     font-family: 'Roboto Mono', monospace;
     padding-left: 10px;
+    margin-bottom: 0.5rem;
+}
+
+.message-info {
+    color: grey;
 }

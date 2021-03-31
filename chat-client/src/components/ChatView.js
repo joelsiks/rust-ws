@@ -2,9 +2,17 @@
 import React, { Component } from "react";
 import { Redirect } from "react-router-dom";
 
+import Dropdown from 'react-bootstrap/Dropdown';
+
 import Navbar from './Navbar';
 
 import '../css/Chat.css';
+
+function GetUTCComponents(utcString) {
+    let d = new Date(utcString);
+
+    return [d.getHours(), d.getMinutes(), d.getSeconds()];
+}
 
 class ChatView extends Component {
 
@@ -25,15 +33,18 @@ class ChatView extends Component {
             redirectToLogin: username === "", // If the username is blank that means the user must login.
             currentMessage: "",
             receivedMessages: [],
+            peerClients: [],
         };
 
         this.checkWsConnection = this.checkWsConnection.bind(this);
 
+        this.addToReceivedMessages = this.addToReceivedMessages.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
         this.handleMessageInput = this.handleMessageInput.bind(this);
         this.handleWsMessage = this.handleWsMessage.bind(this);
         this.handleSendMessage = this.handleSendMessage.bind(this);
         this.renderMessages = this.renderMessages.bind(this);
+        this.renderPeers = this.renderPeers.bind(this);
     }
 
     // Initial timeout duration for the WebSocket.
@@ -51,16 +62,20 @@ class ChatView extends Component {
         var connectInterval;
 
         ws.onopen = () => {
-            console.log("Connected websocket main component.");
-
             this.setState({ ws: ws });
 
             that.timeout = 250;
             clearTimeout(connectInterval);
+
+            ws.send(JSON.stringify({
+                type: "join",
+                payload: {
+                    username: this.state.username,
+                }
+            }));
         }
 
         ws.onclose = e => {
-            console.log("RECONNECTING!");
             console.log(
                 `Socket is closed. Reconnect will be attempted in ${Math.min(
                     10000 / 1000,
@@ -105,6 +120,12 @@ class ChatView extends Component {
         this.setState({ redirectToLogin: true, username: "", ws: null });
     }
 
+    addToReceivedMessages(message) {
+        this.setState({
+            receivedMessages: [...this.state.receivedMessages, message]
+        });
+    }
+
     handleMessageInput(event) {
         event.preventDefault();
 
@@ -118,18 +139,84 @@ class ChatView extends Component {
 
     handleWsMessage(event) {
         try {
-            let { sender, message } = JSON.parse(event.data);
+            let data = JSON.parse(event.data);
 
-            let cd = new Date();
-            this.setState({
-                receivedMessages: [...this.state.receivedMessages, {
-                    timestamp: `${cd.getHours()}:${cd.getMinutes()}`,
-                    sender: sender,
-                    message: message
-                }]
-            });
+            switch (data.type) {
+                // The client has successfully joined a chatroom.
+                case "joined":
+
+                    console.log(data);
+                    // Update the state with the peer clients and reset any received messages.
+                    this.setState({
+                        peerClients: data.payload.others.filter(user => user.name != this.state.username),
+                        receivedMessages: [],
+                    });
+
+                    data.payload.messages.map(message => {
+                        let { createdAt, user, body } = message;
+                        let timeComponents = GetUTCComponents(createdAt);
+                        let timestamp = `${String(timeComponents[0]).padStart(2, '0')}:${String(timeComponents[1]).padStart(2, '0')}`;
+                        let full_timestamp = timestamp + `:${String(timeComponents[2]).padStart(2, '0')}`;
+
+                        this.addToReceivedMessages({
+                            type: "message",
+                            full_timestamp: full_timestamp,
+                            timestamp: timestamp,
+                            sender: user.name,
+                            message: body,
+                        });
+
+                    });
+
+                    this.addToReceivedMessages({
+                        type: "info",
+                        info: `You have now entered the chatroom. There are ${data.payload.others.length} ${data.payload.others.length > 1 ? "users" : "user"} in the chatroom: ${data.payload.others.map(e => e.name).join(", ")}`,
+                    });
+
+                    break;
+
+                // Another client has joined the chatroom.
+                case "user-joined":
+                    this.addToReceivedMessages({
+                        type: "info",
+                        info: `${data.payload.user.name} has joined the chatroom!`,
+                    });
+
+                    // Add the client to the peer list.
+                    console.log(data.payload.user);
+                    this.setState({ peerClients: [...this.state.peerClients, data.payload.user] });
+                    break;
+
+                // A message has been received.
+                case "posted":
+                case "user-posted":
+                    let { createdAt, user, body } = data.payload.message;
+                    let timeComponents = GetUTCComponents(createdAt);
+                    let timestamp = `${String(timeComponents[0]).padStart(2, '0')}:${String(timeComponents[1]).padStart(2, '0')}`;
+                    let full_timestamp = timestamp + `:${String(timeComponents[2]).padStart(2, '0')}`;
+
+                    this.addToReceivedMessages({
+                        type: "message",
+                        full_timestamp: full_timestamp,
+                        timestamp: timestamp,
+                        sender: user.name,
+                        message: body,
+                    });
+                    break;
+
+                // A user left the chatroom.
+                case "user-left":
+                    this.addToReceivedMessages({
+                        type: "info",
+                        info: `${data.payload.user.name} left the chatroom.`,
+                    })
+                    break;
+
+                default:
+                    console.log(data);
+            }
         } catch (e) {
-            console.log(event.data);
+            console.log(`Failed to parse received data as JSON: ${event.data}`);
         }
     }
 
@@ -145,8 +232,11 @@ class ChatView extends Component {
 
         // Send the message over the WebSocket to the server.
         this.state.ws.send(JSON.stringify({
-            sender: this.state.username,
-            message: this.state.currentMessage
+            type: "post",
+            payload: {
+                sender: this.state.username,
+                message: this.state.currentMessage
+            }
         }));
 
         // When we're done, clear the message from the input.
@@ -158,10 +248,29 @@ class ChatView extends Component {
 
         return this.state.receivedMessages.map(message => {
             key++;
-            return (
-                <p className="message" key={key}>[{message.timestamp}] {message.sender}: {message.message}</p>
-            );
+
+            if (message.type == "message") {
+                return (
+                    <p className="message" key={key}><span title={message.full_timestamp}>[{message.timestamp}]</span> {message.sender}: {message.message}</p>
+                );
+            } else if (message.type == "info") {
+                return (
+                    <p className="message message-info" key={key}>{message.info}</p>
+                );
+            }
         });
+    }
+
+    renderPeers() {
+        let key = 0;
+
+        return this.state.peerClients.map(client => {
+            key++;
+
+            return (
+                <Dropdown.Item href="" key={key}>{client.id}, {client.name}</Dropdown.Item>
+            );
+        })
     }
 
     render() {
@@ -172,7 +281,7 @@ class ChatView extends Component {
 
         return (
             <div className="chat-box">
-                <Navbar username={this.state.username} handleLogout={this.handleLogout} />
+                <Navbar username={this.state.username} handleLogout={this.handleLogout} renderPeers={this.renderPeers} />
 
                 <div id="message-box">
                     {this.renderMessages()}

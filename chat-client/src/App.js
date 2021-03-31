@@ -10,14 +10,13 @@ import LoginView from './components/LoginView.js';
 import ChatView from './components/ChatView';
 
 import './css/App.css';
-import './css/bootstrap.min.css';
 
 export default function App() {
     return (
         <Router>
             <Switch>
-                <Route path="/chat" render={(props) => <ChatView {...props}/>} />
-                <Route path="/" render={(props) => <LoginView {...props}/>} />
+                <Route path="/chat" render={(props) => <ChatView {...props} />} />
+                <Route path="/" render={(props) => <LoginView {...props} />} />
             </Switch>
         </Router>
     );

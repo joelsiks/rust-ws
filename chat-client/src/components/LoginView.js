@@ -3,7 +3,6 @@ import React, { Component } from "react";
 import { Redirect } from "react-router-dom";
 
 import '../css/Login.css';
-import '../css/bootstrap.min.css';
 
 const USERNAME_MAX_LENGTH = 32;
 const CHAT_REDIRECT_ROUTE = "/chat";

@@ -60,6 +60,7 @@ class ChatView extends Component {
         }
 
         ws.onclose = e => {
+            console.log("RECONNECTING!");
             console.log(
                 `Socket is closed. Reconnect will be attempted in ${Math.min(
                     10000 / 1000,
@@ -97,7 +98,11 @@ class ChatView extends Component {
     handleLogout(event) {
         event.preventDefault();
 
-        this.setState({ redirectToLogin: true, username: "" });
+        // Remove the onclose event and close the WebSocket connection.
+        this.state.ws.onclose = function () { };
+        this.state.ws.close();
+
+        this.setState({ redirectToLogin: true, username: "", ws: null });
     }
 
     handleMessageInput(event) {
@@ -112,16 +117,20 @@ class ChatView extends Component {
     }
 
     handleWsMessage(event) {
-        let { sender, message } = JSON.parse(event.data);
+        try {
+            let { sender, message } = JSON.parse(event.data);
 
-        let cd = new Date();
-        this.setState({
-            receivedMessages: [...this.state.receivedMessages, {
-                timestamp: `${cd.getHours()}:${cd.getMinutes()}`,
-                sender: sender,
-                message: message
-            }]
-        });
+            let cd = new Date();
+            this.setState({
+                receivedMessages: [...this.state.receivedMessages, {
+                    timestamp: `${cd.getHours()}:${cd.getMinutes()}`,
+                    sender: sender,
+                    message: message
+                }]
+            });
+        } catch (e) {
+            console.log(event.data);
+        }
     }
 
     handleSendMessage(event) {

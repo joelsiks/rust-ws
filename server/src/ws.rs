@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::lobby::Lobby;
 use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
+use crate::proto::*;
 
 // How often heartbeat pings are sent.
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -57,23 +58,6 @@ impl Actor for ChatWebsocket {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
-
-        let addr = ctx.address();
-        self.lobby_addr
-            .send(Connect {
-                addr: addr.recipient(),
-                lobby_id: self.room,
-                self_id: self.id,
-            })
-            .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(_res) => (),
-                    _ => ctx.stop(),
-                }
-                fut::ready(())
-            })
-            .wait(ctx);
     }
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
@@ -88,8 +72,10 @@ impl Actor for ChatWebsocket {
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         // Process websocket messages
-        // TODO: Remove this println.
-        println!("WS: {:?}", msg);
+        match msg {
+            Ok(ws::Message::Pong(_)) => (),
+            _ => println!("WS: {:?}", msg),
+        }
 
         match msg {
             Ok(ws::Message::Ping(msg)) => {
@@ -108,11 +94,28 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
                 ctx.stop();
             }
             Ok(ws::Message::Nop) => (),
-            Ok(ws::Message::Text(text)) => self.lobby_addr.do_send(ClientActorMessage {
-                id: self.id,
-                msg: text,
-                room_id: self.room,
-            }),
+            Ok(ws::Message::Text(text)) => {
+                let result: serde_json::Result<Input> = serde_json::from_str(&text);
+                if let Ok(input) = result {
+                    match input {
+                        Input::Join(inp) => {
+                            self.lobby_addr.do_send(Connect {
+                                addr: ctx.address().recipient(),
+                                lobby_id: self.room,
+                                self_id: self.id,
+                                username: inp.username,
+                            });
+                        }
+                        Input::Post(inp) => self.lobby_addr.do_send(ClientActorMessage {
+                            id: self.id,
+                            msg: inp.message,
+                            room_id: self.room,
+                        }),
+                    };
+                } else {
+                    // TODO: Send error message (and close connection??).
+                }
+            }
             Err(e) => panic!(e), // TODO: Change this panic to something else (log and disconnect?).
         }
     }

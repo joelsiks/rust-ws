@@ -19,6 +19,10 @@ class ChatView extends Component {
     constructor(props) {
         super(props);
 
+        // Will be set to false if we are ever disconnected / does not manage
+        // to connect, and set to true when we manage to connect.
+        this.connected = false;
+
         let username = "";
 
         // Check if this.props.loation is defined, and if it is set the username
@@ -62,6 +66,7 @@ class ChatView extends Component {
         var connectInterval;
 
         ws.onopen = () => {
+            this.connected = true;
             this.setState({ ws: ws });
 
             that.webSocketTimeout = 250;
@@ -91,6 +96,17 @@ class ChatView extends Component {
         }
 
         ws.onerror = err => {
+
+            if (this.connected === true) {
+                // Add to user messages that we have been disconnected and are trying to reconnect.
+                this.addToReceivedMessages({
+                    type: "info",
+                    info: "Disconnected from server. Trying to reconnect..."
+                });
+
+                this.connected = false;
+            }
+
             console.error(
                 "Socket encountered error: ",
                 err.message,

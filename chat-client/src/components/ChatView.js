@@ -64,7 +64,7 @@ class ChatView extends Component {
         ws.onopen = () => {
             this.setState({ ws: ws });
 
-            that.timeout = 250;
+            that.webSocketTimeout = 250;
             clearTimeout(connectInterval);
 
             ws.send(JSON.stringify({
@@ -79,15 +79,15 @@ class ChatView extends Component {
             console.log(
                 `Socket is closed. Reconnect will be attempted in ${Math.min(
                     10000 / 1000,
-                    (that.timeout + that.timeout) / 1000
+                    (that.webSocketTimeout + that.webSocketTimeout) / 1000
                 )} second.`,
                 e.reason
             );
 
             // Increment retry.
-            that.timeout = that.timeout + that.timeout;
+            that.webSocketTimeout = that.webSocketTimeout + that.webSocketTimeout;
 
-            connectInterval = setTimeout(this.checkWsConnection, Math.min(10000, that.timeout));
+            connectInterval = setTimeout(this.checkWsConnection, Math.min(10000, that.webSocketTimeout));
         }
 
         ws.onerror = err => {

@@ -53,24 +53,18 @@ class LoginView extends Component {
         return (
             <div className="Login">
                 <div className="container-fluid" id="login-container">
-                    <div className="row">
-                        <div className="col-md-4 align-self-start hide-on-narrow"></div>
 
-                        <div className="col align-self-center">
-                            <div className="card">
-                                <div className="card-body">
-                                    <h2 className="card-title">Welcome to rust-ws 👋🎉</h2>
-                                    <hr />
-                                    <h6 className="card-subtitle mb-2 text-muted">Choose a username to enter the chatroom.</h6>
+                        <div className="card align-middle">
+                            <div className="card-body">
+                                <h2 className="card-title">Welcome to rust-ws 👋🎉</h2>
+                                <hr />
+                                <h6 className="card-subtitle mb-2 text-muted">Choose a username to enter the chatroom.</h6>
 
-                                    <input autoFocus id="username-input" className="form-control" type="text" placeholder="Username" aria-label="Visible to other users in the chatroom." value={this.state.username} onChange={this.handleUsernameChange} onKeyDown={this.handleUsernameKeyDown} />
-                                    <button type="button" className="btn btn-primary" onClick={this.handleLogin}>Enter the chatroom</button>
-                                </div>
+                                <input autoFocus id="username-input" className="form-control" type="text" placeholder="Username" aria-label="Visible to other users in the chatroom." value={this.state.username} onChange={this.handleUsernameChange} onKeyDown={this.handleUsernameKeyDown} />
+                                <button type="button" className="btn btn-primary" onClick={this.handleLogin}>Enter the chatroom</button>
                             </div>
                         </div>
 
-                        <div className="col-md-4 align-self-start hide-on-narrow"></div>
-                    </div>
                 </div>
             </div>
         );

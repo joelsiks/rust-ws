@@ -206,9 +206,18 @@ class ChatView extends Component {
 
                 // A user left the chatroom.
                 case "user-left":
+
+                    // Username and id of the client who left.
+                    let { name, id } = data.payload.user;
+
+                    // Remove the peer from the peer clients list.
+                    this.setState({
+                        peerClients: this.state.peerClients.filter(client => client.id != id)
+                    });
+
                     this.addToReceivedMessages({
                         type: "info",
-                        info: `${data.payload.user.name} left the chatroom.`,
+                        info: `${name} left the chatroom.`,
                     })
                     break;
 

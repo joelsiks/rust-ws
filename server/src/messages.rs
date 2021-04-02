@@ -6,6 +6,12 @@ use uuid::Uuid;
 #[rtype(result = "()")]
 pub struct WsMessage(pub String);
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct WsConnect {
+    pub addr: Recipient<WsMessage>,
+}
+
 // ChatWebsocket sends this to connect to a lobby.
 #[derive(Message)]
 #[rtype(result = "()")]

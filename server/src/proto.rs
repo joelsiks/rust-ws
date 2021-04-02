@@ -18,6 +18,16 @@ pub struct MessageOutput {
     pub created_at: DateTime<Utc>,
 }
 
+// Used to represent a chatroom with connected users.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Room {
+    pub id: Uuid,
+    pub name: String,
+    pub connected_clients: usize,
+    pub max_clients: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 pub enum Input {
@@ -44,6 +54,8 @@ pub struct PostInput {
 pub enum Output {
     #[serde(rename = "error")]
     Error(OutputError),
+    #[serde(rename = "rooms")]
+    Rooms(RoomsOutput),
     #[serde(rename = "joined")]
     Joined(JoinedOutput),
     #[serde(rename = "user-joined")]
@@ -67,6 +79,12 @@ pub enum OutputError {
     NotJoined,
     #[serde(rename = "invalid-message-body")]
     InvalidMessageBody,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomsOutput {
+    pub rooms: Vec<Room>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -118,6 +136,23 @@ impl MessageOutput {
             body: String::from(body),
             created_at,
         }
+    }
+}
+
+impl Room {
+    pub fn new(id: Uuid, name: String, connected_clients: usize, max_clients: usize) -> Self {
+        Room {
+            id,
+            name,
+            connected_clients,
+            max_clients,
+        }
+    }
+}
+
+impl RoomsOutput {
+    pub fn new(rooms: Vec<Room>) -> Self {
+        RoomsOutput { rooms }
     }
 }
 

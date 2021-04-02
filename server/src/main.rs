@@ -1,6 +1,7 @@
 mod lobby;
 mod messages;
 mod proto;
+mod rooms;
 mod start_connection;
 mod ws;
 

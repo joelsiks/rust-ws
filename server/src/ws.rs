@@ -5,7 +5,7 @@ use actix_web_actors::ws;
 use uuid::Uuid;
 
 use crate::lobby::Lobby;
-use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
+use crate::messages::{ClientActorMessage, Connect, Disconnect, WsConnect, WsMessage};
 use crate::proto::*;
 
 // How often heartbeat pings are sent.
@@ -58,6 +58,10 @@ impl Actor for ChatWebsocket {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
+
+        self.lobby_addr.do_send(WsConnect {
+            addr: ctx.address().recipient(),
+        });
     }
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {

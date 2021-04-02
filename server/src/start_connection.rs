@@ -11,10 +11,7 @@ pub async fn start_connection(
     stream: Payload,
     srv: Data<Addr<Lobby>>,
 ) -> Result<HttpResponse, Error> {
-    let ws = ChatWebsocket::new(
-        Uuid::parse_str("936DA01F9ABD4d9d80C702AF85C822A8").unwrap(),
-        srv.get_ref().clone(),
-    );
+    let ws = ChatWebsocket::new(srv.get_ref().clone());
 
     let resp = ws::start(ws, &req, stream)?;
     Ok(resp)

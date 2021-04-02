@@ -24,9 +24,9 @@ pub struct ChatWebsocket {
 }
 
 impl ChatWebsocket {
-    pub fn new(room: Uuid, lobby: Addr<Lobby>) -> Self {
+    pub fn new(lobby: Addr<Lobby>) -> Self {
         ChatWebsocket {
-            room,
+            room: Uuid::new_v4(),
             lobby_addr: lobby,
             hb: Instant::now(),
             id: Uuid::new_v4(),
@@ -103,11 +103,23 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
                 if let Ok(input) = result {
                     match input {
                         Input::Join(inp) => {
+                            self.room = inp.room;
                             self.lobby_addr.do_send(Connect {
                                 addr: ctx.address().recipient(),
                                 lobby_id: self.room,
                                 self_id: self.id,
                                 username: inp.username,
+                            });
+                        }
+                        Input::Leave => {
+                            self.lobby_addr.do_send(Disconnect {
+                                self_id: self.id,
+                                room_id: self.room,
+                            });
+
+                            // Send the updates rooms to the client.
+                            self.lobby_addr.do_send(WsConnect {
+                                addr: ctx.address().recipient(),
                             });
                         }
                         Input::Post(inp) => self.lobby_addr.do_send(ClientActorMessage {

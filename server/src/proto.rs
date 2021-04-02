@@ -33,6 +33,8 @@ pub struct Room {
 pub enum Input {
     #[serde(rename = "join")]
     Join(JoinInput),
+    #[serde(rename = "leave")]
+    Leave,
     #[serde(rename = "post")]
     Post(PostInput),
 }
@@ -41,6 +43,7 @@ pub enum Input {
 #[serde(rename_all = "camelCase")]
 pub struct JoinInput {
     pub username: String,
+    pub room: Uuid,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -18,11 +18,21 @@ pub struct Lobby {
 
 impl Default for Lobby {
     fn default() -> Self {
-        Lobby {
+        let mut lobby = Lobby {
             sessions: HashMap::new(),
             users: HashMap::new(),
             rooms: HashMap::new(),
+        };
+
+        for i in 1..11 {
+            let room_id = Uuid::new_v4();
+
+            lobby
+                .rooms
+                .insert(room_id, ChatRoom::new(room_id, format!("Room {}", i), 10));
         }
+
+        lobby
     }
 }
 
@@ -107,12 +117,7 @@ impl Handler<Disconnect> for Lobby {
             );
 
             if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
-                if lobby.clients.len() > 1 {
-                    lobby.remove_client(&msg.self_id);
-                } else {
-                    // TODO: Decide if to remove rooms when they are empty or not!
-                    self.rooms.remove(&msg.room_id);
-                }
+                lobby.remove_client(&msg.self_id);
             }
         }
 

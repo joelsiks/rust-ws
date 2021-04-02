@@ -8,6 +8,17 @@ import '../css/Chat.css';
 import '../css/Navbar.css';
 
 class ChatView extends Component {
+
+    renderDropdownPeers() {
+        if (this.props.connected) {
+            return (
+                <DropdownButton id="users-navbar-btn" title="Connected users">
+                    {this.props.renderPeers()}
+                </DropdownButton>
+            );
+        }
+    }
+
     render() {
         return (
             <div className="Navbar" style={{ padding: "0px" }}>
@@ -16,12 +27,11 @@ class ChatView extends Component {
                         <a className="navbar-brand">rust-ws</a>
                         <form className="d-flex">
                             <p id="navbar-username">{this.props.username}</p>
+                            <button id="rooms-btn" className="btn btn-primary" onClick={this.props.exitRoom}>Rooms</button>
 
-                            <DropdownButton id="users-navbar-btn" title="Connected users">
-                                {this.props.renderPeers()}
-                            </DropdownButton>
+                            {this.renderDropdownPeers()}
 
-                            <button className="btn btn-outline-danger" onClick={this.props.handleLogout}>Logout</button>
+                            <button id="logout-btn" className="btn btn-outline-danger" onClick={this.props.handleLogout}>Logout</button>
                         </form>
                     </div>
                 </nav>

@@ -1,0 +1,12 @@
+
+.RoomSelect {
+    max-width: 60rem;
+    padding: 1rem;
+    margin: 1rem auto;
+    margin-top: 15vh;
+}
+
+.room-row:hover {
+    background-color: rgb(204, 198, 198);
+    cursor: pointer;
+}

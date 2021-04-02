@@ -5,6 +5,7 @@ import { Redirect } from "react-router-dom";
 import Dropdown from 'react-bootstrap/Dropdown';
 
 import Navbar from './Navbar';
+import RoomSelect from './RoomSelect';
 
 import '../css/Chat.css';
 
@@ -33,14 +34,19 @@ class ChatView extends Component {
 
         this.state = {
             username,
-            ws: null,
             redirectToLogin: username === "", // If the username is blank that means the user must login.
+            ws: null,
+            rooms: [],
+            selectedRoom: "", // The ID of the selected room.
             currentMessage: "",
             receivedMessages: [],
             peerClients: [],
         };
 
         this.checkWsConnection = this.checkWsConnection.bind(this);
+
+        this.handleExitRoom = this.handleExitRoom.bind(this);
+        this.handleJoinRoom = this.handleJoinRoom.bind(this);
 
         this.addToReceivedMessages = this.addToReceivedMessages.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
@@ -71,13 +77,6 @@ class ChatView extends Component {
 
             that.webSocketTimeout = 250;
             clearTimeout(connectInterval);
-
-            ws.send(JSON.stringify({
-                type: "join",
-                payload: {
-                    username: this.state.username,
-                }
-            }));
         }
 
         ws.onclose = e => {
@@ -136,6 +135,29 @@ class ChatView extends Component {
         this.setState({ redirectToLogin: true, username: "", ws: null });
     }
 
+    handleExitRoom(event) {
+        event.preventDefault();
+
+        this.setState({ selectedRoom: "" })
+        this.state.ws.send(JSON.stringify({
+            type: "leave",
+        }));
+    }
+
+    handleJoinRoom(roomId) {
+        console.log("Joining room: " + roomId);
+
+        this.state.ws.send(JSON.stringify({
+            type: "join",
+            payload: {
+                username: this.state.username,
+                room: roomId,
+            }
+        }));
+
+        this.setState({ selectedRoom: roomId });
+    }
+
     addToReceivedMessages(message) {
         this.setState({
             receivedMessages: [...this.state.receivedMessages, message]
@@ -158,17 +180,36 @@ class ChatView extends Component {
             let data = JSON.parse(event.data);
 
             switch (data.type) {
+                case "rooms":
+
+                    data.payload.rooms.sort((a, b) => {
+                        a = Number(a.name.replace("Room ", ""))
+                        b = Number(b.name.replace("Room ", ""))
+
+                        if (a < b) {
+                            return -1;
+                        } else if (a > b) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    });
+
+                    this.setState({ rooms: data.payload.rooms });
+                    console.log(this.state.rooms[0]);
+                    break;
+
                 // The client has successfully joined a chatroom.
                 case "joined":
 
                     console.log(data);
                     // Update the state with the peer clients and reset any received messages.
                     this.setState({
-                        peerClients: data.payload.others.filter(user => user.name != this.state.username),
+                        peerClients: data.payload.others.filter(user => user.name !== this.state.username),
                         receivedMessages: [],
                     });
 
-                    data.payload.messages.map(message => {
+                    data.payload.messages.forEach(message => {
                         let { createdAt, user, body } = message;
                         let timeComponents = GetUTCComponents(createdAt);
                         let timestamp = `${String(timeComponents[0]).padStart(2, '0')}:${String(timeComponents[1]).padStart(2, '0')}`;
@@ -199,7 +240,6 @@ class ChatView extends Component {
                     });
 
                     // Add the client to the peer list.
-                    console.log(data.payload.user);
                     this.setState({ peerClients: [...this.state.peerClients, data.payload.user] });
                     break;
 
@@ -228,7 +268,7 @@ class ChatView extends Component {
 
                     // Remove the peer from the peer clients list.
                     this.setState({
-                        peerClients: this.state.peerClients.filter(client => client.id != id)
+                        peerClients: this.state.peerClients.filter(client => client.id !== id)
                     });
 
                     this.addToReceivedMessages({
@@ -274,13 +314,13 @@ class ChatView extends Component {
         return this.state.receivedMessages.map(message => {
             key++;
 
-            if (message.type == "message") {
-                return (
-                    <p className="message" key={key}><span title={message.full_timestamp}>[{message.timestamp}]</span> {message.sender}: {message.message}</p>
-                );
-            } else if (message.type == "info") {
+            if (message.type === "info") {
                 return (
                     <p className="message message-info" key={key}>{message.info}</p>
+                );
+            } else {
+                return (
+                    <p className="message" key={key}><span title={message.full_timestamp}>[{message.timestamp}]</span> {message.sender}: {message.message}</p>
                 );
             }
         });
@@ -289,13 +329,19 @@ class ChatView extends Component {
     renderPeers() {
         let key = 0;
 
-        return this.state.peerClients.map(client => {
-            key++;
-
+        if (this.state.peerClients.length === 0) {
             return (
-                <Dropdown.Item href="" key={key}>{client.id}, {client.name}</Dropdown.Item>
-            );
-        })
+                <Dropdown.Item>No other users in your room.</Dropdown.Item>
+            )
+        } else {
+            return this.state.peerClients.map(client => {
+                key++;
+
+                return (
+                    <Dropdown.Item href="" key={key}>{client.name}</Dropdown.Item>
+                );
+            })
+        }
     }
 
     render() {
@@ -304,20 +350,31 @@ class ChatView extends Component {
             return <Redirect to="/" />
         }
 
-        return (
-            <div className="chat-box">
-                <Navbar username={this.state.username} handleLogout={this.handleLogout} renderPeers={this.renderPeers} />
+        // Render this if the user has selected a chatroom.
+        if (this.state.selectedRoom !== "") {
+            return (
+                <div className="chat-box">
+                    <Navbar username={this.state.username} connected={true} handleLogout={this.handleLogout} renderPeers={this.renderPeers} exitRoom={this.handleExitRoom} />
 
-                <div id="message-box">
-                    {this.renderMessages()}
+                    <div id="message-box">
+                        {this.renderMessages()}
+                    </div>
+
+                    <form id="message-form" className="d-flex">
+                        <input id="message-input" className="form-control me-2" type="text" placeholder="Enter message.." aria-label="message" value={this.state.currentMessage} onChange={this.handleMessageInput} />
+                        <button id="message-send-btn" className="btn btn-primary" type="submit" onClick={this.handleSendMessage}>Send message</button>
+                    </form>
                 </div>
+            );
+        } else {
+            return (
+                <div className="chat-box">
+                    <Navbar username={this.state.username} connected={false} handleLogout={this.handleLogout} renderPeers={this.renderPeers} exitRoom={this.handleExitRoom} />
 
-                <form id="message-form" className="d-flex">
-                    <input id="message-input" className="form-control me-2" type="text" placeholder="Enter message.." aria-label="message" value={this.state.currentMessage} onChange={this.handleMessageInput} />
-                    <button id="message-send-btn" className="btn btn-primary" type="submit" onClick={this.handleSendMessage}>Send message</button>
-                </form>
-            </div>
-        );
+                    <RoomSelect rooms={this.state.rooms} handleJoinRoom={this.handleJoinRoom} />
+                </div>
+            );
+        }
     }
 }
 

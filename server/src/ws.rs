@@ -56,6 +56,7 @@ impl ChatWebsocket {
 impl Actor for ChatWebsocket {
     type Context = ws::WebsocketContext<Self>;
 
+    // Called when a WebSocket client connection starts.
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
 
@@ -64,6 +65,7 @@ impl Actor for ChatWebsocket {
         });
     }
 
+    // Called when a WebSocket client connection has ended.
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
         self.lobby_addr.do_send(Disconnect {
             self_id: self.id,
@@ -74,13 +76,16 @@ impl Actor for ChatWebsocket {
 }
 
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
+    // Called when a message is received from a WebSocket client.
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        // Process websocket messages
+        // Print out the message if it's not a ping/pong.
         match msg {
             Ok(ws::Message::Pong(_)) => (),
+            Ok(ws::Message::Ping(_)) => (),
             _ => println!("WS: {:?}", msg),
         }
 
+        // Process websocket messages
         match msg {
             Ok(ws::Message::Ping(msg)) => {
                 self.hb = Instant::now();
@@ -99,7 +104,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
             }
             Ok(ws::Message::Nop) => (),
             Ok(ws::Message::Text(text)) => {
+                // Parse the message as json.
                 let result: serde_json::Result<Input> = serde_json::from_str(&text);
+
+                // Figure out what message the client has sent.
                 if let Ok(input) = result {
                     match input {
                         Input::Join(inp) => {

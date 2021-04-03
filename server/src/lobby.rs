@@ -1,29 +1,28 @@
 use crate::messages::{ClientActorMessage, Connect, Disconnect, WsConnect, WsMessage};
+use crate::proto::*;
 use crate::rooms::ChatRoom;
 use actix::prelude::{Actor, Context, Handler, Recipient};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use chrono::{DateTime, Utc};
-
-use crate::proto::*;
-
 type Socket = Recipient<WsMessage>;
 
+/// The lobby keeps track of all available chatrooms that clients can connect
+/// to and the socket for every connected client.
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>, // self id to self
-    users: HashMap<Uuid, String>,    // self id to username
-    rooms: HashMap<Uuid, ChatRoom>,  // room id to the list of users id
+    rooms: HashMap<Uuid, ChatRoom>,  // room id to a chatroom.
 }
 
 impl Default for Lobby {
     fn default() -> Self {
         let mut lobby = Lobby {
             sessions: HashMap::new(),
-            users: HashMap::new(),
             rooms: HashMap::new(),
         };
 
+        // Add default rooms.
         for i in 1..11 {
             let room_id = Uuid::new_v4();
 
@@ -37,15 +36,15 @@ impl Default for Lobby {
 }
 
 impl Lobby {
-    // TODO: Change the return type of this function to a Result.
     fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
             let _ = socket_recipient.do_send(WsMessage(message.to_owned()));
         } else {
-            println!("Attempting to send message but couldn't find user id.");
+            println!("Attempting to send message but couldn't find client id.");
         }
     }
 
+    // Sends a message to every client connected to a chatroom.
     fn send_to_everyone(&self, room_id: &Uuid, message: &String) {
         self.rooms
             .get(room_id)
@@ -55,6 +54,8 @@ impl Lobby {
             .for_each(|client_id| self.send_message(message, client_id));
     }
 
+    // Sends a message to every client connected to a chatroom except one client
+    // specified by `self_id`.
     fn send_to_everyone_except_self(&self, room_id: &Uuid, self_id: &Uuid, message: &String) {
         self.rooms
             .get(room_id)
@@ -73,6 +74,10 @@ impl Actor for Lobby {
 impl Handler<WsConnect> for Lobby {
     type Result = ();
 
+    // When a WebSocket client is first connected, the WsConnect message is sent
+    // on the server to send information about all the available rooms to the
+    // client. This happens before the server gets information about what
+    // username the client has and what room the client wants to join.
     fn handle(&mut self, msg: WsConnect, _: &mut Context<Self>) {
         let _ = msg.addr.do_send(WsMessage(
             serde_json::to_string(&Output::Rooms(RoomsOutput::new(
@@ -106,6 +111,8 @@ impl Handler<Disconnect> for Lobby {
                 .get_username(&msg.self_id)
                 .unwrap();
 
+            // Send message to all other clients in the same room that the
+            // clien thas disconnected.
             self.send_to_everyone_except_self(
                 &msg.room_id,
                 &msg.self_id,
@@ -120,8 +127,6 @@ impl Handler<Disconnect> for Lobby {
                 lobby.remove_client(&msg.self_id);
             }
         }
-
-        self.users.remove(&msg.self_id);
     }
 }
 
@@ -137,7 +142,7 @@ impl Handler<Connect> for Lobby {
             );
         }
 
-        // Echo to everyone in the room that a new uuid just joined.
+        // Echo to everyone in the room that a new client just joined.
         self.send_to_everyone_except_self(
             &msg.lobby_id,
             &msg.self_id,
@@ -160,18 +165,20 @@ impl Handler<Connect> for Lobby {
         // Get the chat history for the current room.
         let room_chat_history = current_room.history.clone();
 
-        // Get all connected users information from the current room.
-        let connected_users: Vec<UserOutput> = current_room
+        // Get all connected clients information from the current room.
+        let connected_clients: Vec<UserOutput> = current_room
             .clients
             .iter()
             .map(|(client_id, client_name)| UserOutput::new(client_id.clone(), client_name))
             .collect();
 
-        // Send the client information that the join was successful.
+        // Send the client information that the join was successful, along with
+        // information about other connected clients and the history of the
+        // chatroom.
         self.send_message(
             &serde_json::to_string(&Output::Joined(JoinedOutput::new(
                 UserOutput::new(msg.self_id, &msg.username),
-                connected_users,
+                connected_clients,
                 room_chat_history,
             )))
             .unwrap(),
@@ -210,6 +217,7 @@ impl Handler<ClientActorMessage> for Lobby {
             .history
             .push(message_output.clone());
 
+        // Send the message to all other clients in the chatroom.
         self.send_to_everyone_except_self(
             &msg.room_id,
             &msg.id,
@@ -219,6 +227,7 @@ impl Handler<ClientActorMessage> for Lobby {
             .unwrap(),
         );
 
+        // Send information about the message to the client that sent it.
         self.send_message(
             &serde_json::to_string(&Output::Posted(PostedOutput::new(message_output))).unwrap(),
             &msg.id,

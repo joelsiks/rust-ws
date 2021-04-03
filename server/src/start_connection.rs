@@ -3,7 +3,6 @@ use crate::ws::ChatWebsocket;
 use actix::Addr;
 use actix_web::{get, web::Data, web::Payload, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use uuid::Uuid;
 
 #[get("/ws/")]
 pub async fn start_connection(

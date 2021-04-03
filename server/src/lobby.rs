@@ -1,4 +1,4 @@
-use crate::messages::{ClientActorMessage, Connect, Disconnect, WsConnect, WsMessage};
+use crate::messages::{ClientActorMessage, Connect, Disconnect, Join, WsMessage};
 use crate::proto::*;
 use crate::rooms::ChatRoom;
 use actix::prelude::{Actor, Context, Handler, Recipient};
@@ -71,14 +71,14 @@ impl Actor for Lobby {
     type Context = Context<Self>;
 }
 
-impl Handler<WsConnect> for Lobby {
+impl Handler<Connect> for Lobby {
     type Result = ();
 
     // When a WebSocket client is first connected, the WsConnect message is sent
     // on the server to send information about all the available rooms to the
     // client. This happens before the server gets information about what
     // username the client has and what room the client wants to join.
-    fn handle(&mut self, msg: WsConnect, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) {
         let _ = msg.addr.do_send(WsMessage(
             serde_json::to_string(&Output::Rooms(RoomsOutput::new(
                 self.rooms
@@ -98,42 +98,10 @@ impl Handler<WsConnect> for Lobby {
     }
 }
 
-impl Handler<Disconnect> for Lobby {
+impl Handler<Join> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
-        if self.sessions.remove(&msg.self_id).is_some() {
-            // Get the username from the current room.
-            let username = self
-                .rooms
-                .get(&msg.room_id)
-                .unwrap()
-                .get_username(&msg.self_id)
-                .unwrap();
-
-            // Send message to all other clients in the same room that the
-            // clien thas disconnected.
-            self.send_to_everyone_except_self(
-                &msg.room_id,
-                &msg.self_id,
-                &serde_json::to_string(&Output::UserLeft(UserLeftOutput::new(
-                    msg.self_id,
-                    username,
-                )))
-                .unwrap(),
-            );
-
-            if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
-                lobby.remove_client(&msg.self_id);
-            }
-        }
-    }
-}
-
-impl Handler<Connect> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: Join, _: &mut Context<Self>) {
         // Create a room if necessary.
         if self.rooms.get(&msg.lobby_id).is_none() {
             self.rooms.insert(
@@ -184,6 +152,38 @@ impl Handler<Connect> for Lobby {
             .unwrap(),
             &msg.self_id,
         );
+    }
+}
+
+impl Handler<Disconnect> for Lobby {
+    type Result = ();
+
+    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
+        if self.sessions.remove(&msg.self_id).is_some() {
+            // Get the username from the current room.
+            let username = self
+                .rooms
+                .get(&msg.room_id)
+                .unwrap()
+                .get_username(&msg.self_id)
+                .unwrap();
+
+            // Send message to all other clients in the same room that the
+            // clien thas disconnected.
+            self.send_to_everyone_except_self(
+                &msg.room_id,
+                &msg.self_id,
+                &serde_json::to_string(&Output::UserLeft(UserLeftOutput::new(
+                    msg.self_id,
+                    username,
+                )))
+                .unwrap(),
+            );
+
+            if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
+                lobby.remove_client(&msg.self_id);
+            }
+        }
     }
 }
 

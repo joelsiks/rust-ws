@@ -8,14 +8,14 @@ pub struct WsMessage(pub String);
 
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct WsConnect {
+pub struct Connect {
     pub addr: Recipient<WsMessage>,
 }
 
 // ChatWebsocket sends this to connect to a lobby.
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct Connect {
+pub struct Join {
     pub addr: Recipient<WsMessage>,
     pub lobby_id: Uuid,
     pub self_id: Uuid,

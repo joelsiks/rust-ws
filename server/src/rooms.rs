@@ -2,15 +2,15 @@ use crate::proto::MessageOutput;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Used to represent a chat room where multiple clients can connect to and
-/// chat with eachother. Currently each chatroom keeps track of its own history
-/// of messages, but this should in the future we moved to an external database.
+/// Used to represent a chat room which multiple clients can connect to and
+/// chat with each other. Currently each chat room keeps track of its own history
+/// of messages, but this should in the future be moved to an external database.
 pub struct ChatRoom {
-    /// Used to identify the chatroom.
+    /// Used to identify the chat room.
     pub id: Uuid,
     pub name: String,
 
-    /// Maximum amount of clients allowed to connect to the chatroom.
+    /// Maximum amount of clients allowed to connect to the chat room.
     pub max_clients: usize,
 
     /// Maps uuid to username for all connected clients.

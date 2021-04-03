@@ -1,4 +1,4 @@
-use crate::messages::{ClientActorMessage, Connect, Disconnect, Join, WsMessage};
+use crate::messages::{ClientActorMessage, Connect, Disconnect, Join, Typing, WsMessage};
 use crate::proto::*;
 use crate::rooms::ChatRoom;
 use actix::prelude::{Actor, Context, Handler, Recipient};
@@ -22,14 +22,12 @@ impl Default for Lobby {
             rooms: HashMap::new(),
         };
 
-        // Add default rooms.
-        for i in 1..11 {
-            let room_id = Uuid::new_v4();
+        let default_room_id = Uuid::new_v4();
 
-            lobby
-                .rooms
-                .insert(room_id, ChatRoom::new(room_id, format!("Room {}", i), 10));
-        }
+        lobby.rooms.insert(
+            default_room_id,
+            ChatRoom::new(default_room_id, "Default room".to_string(), 10),
+        );
 
         lobby
     }
@@ -184,6 +182,28 @@ impl Handler<Disconnect> for Lobby {
                 lobby.remove_client(&msg.self_id);
             }
         }
+    }
+}
+
+impl Handler<Typing> for Lobby {
+    type Result = ();
+
+    fn handle(&mut self, msg: Typing, _: &mut Context<Self>) {
+        // Get the username from the current room.
+        let username = self
+            .rooms
+            .get(&msg.room_id)
+            .unwrap()
+            .get_username(&msg.id)
+            .unwrap();
+
+        let message = serde_json::to_string(&Output::Typing(TypingOutput::new(
+            msg.status,
+            UserOutput::new(msg.id, username),
+        )))
+        .unwrap();
+
+        self.send_to_everyone_except_self(&msg.room_id, &msg.id, &message);
     }
 }
 

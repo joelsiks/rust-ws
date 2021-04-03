@@ -1,3 +1,4 @@
+use crate::proto::TypingInput;
 use actix::prelude::{Message, Recipient};
 use uuid::Uuid;
 
@@ -28,6 +29,16 @@ pub struct Join {
 pub struct Disconnect {
     pub room_id: Uuid,
     pub self_id: Uuid,
+}
+
+// ChatWebsocket sends this when a client indicates that they have started or
+// stopped typing.
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Typing {
+    pub id: Uuid,
+    pub room_id: Uuid,
+    pub status: TypingInput,
 }
 
 // Client sends this to the lobby for the lobby to echo it out.

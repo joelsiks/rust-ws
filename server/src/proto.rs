@@ -37,6 +37,8 @@ pub enum Input {
     Leave,
     #[serde(rename = "post")]
     Post(PostInput),
+    #[serde(rename = "typing")]
+    Typing(TypingInput),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -50,6 +52,15 @@ pub struct JoinInput {
 #[serde(rename_all = "camelCase")]
 pub struct PostInput {
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TypingInput {
+    #[serde(rename = "started")]
+    Started,
+    #[serde(rename = "stopped")]
+    Stopped,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -69,6 +80,8 @@ pub enum Output {
     Posted(PostedOutput),
     #[serde(rename = "user-posted")]
     UserPosted(UserPostedOutput),
+    #[serde(rename = "user-typing")]
+    Typing(TypingOutput),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -120,6 +133,13 @@ pub struct PostedOutput {
 #[serde(rename_all = "camelCase")]
 pub struct UserPostedOutput {
     pub message: MessageOutput,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TypingOutput {
+    pub status: TypingInput,
+    pub user: UserOutput,
 }
 
 impl UserOutput {
@@ -192,5 +212,11 @@ impl PostedOutput {
 impl UserPostedOutput {
     pub fn new(message: MessageOutput) -> Self {
         UserPostedOutput { message }
+    }
+}
+
+impl TypingOutput {
+    pub fn new(status: TypingInput, user: UserOutput) -> Self {
+        TypingOutput { status, user }
     }
 }

@@ -5,7 +5,7 @@ use actix_web_actors::ws;
 use uuid::Uuid;
 
 use crate::lobby::Lobby;
-use crate::messages::{ClientActorMessage, Connect, Disconnect, Join, WsMessage};
+use crate::messages::{ClientActorMessage, Connect, Disconnect, Join, Typing, WsMessage};
 use crate::proto::*;
 
 // How often heartbeat pings are sent.
@@ -135,6 +135,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatWebsocket {
                             msg: inp.message,
                             room_id: self.room,
                         }),
+                        Input::Typing(status) => {
+                            self.lobby_addr.do_send(Typing {
+                                id: self.id,
+                                room_id: self.room,
+                                status,
+                            });
+                        }
                     };
                 } else {
                     // TODO: Send error message (and close connection??).

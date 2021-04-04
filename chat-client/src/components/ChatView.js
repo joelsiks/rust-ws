@@ -316,7 +316,6 @@ class ChatView extends Component {
                 case "user-typing":
                     let { status } = data.payload;
 
-                    console.log(status, data.payload.user);
                     if (status === "started") {
                         this.setState({ typingClients: [...this.state.typingClients, data.payload.user] });
                     } else if (status === "stopped") {

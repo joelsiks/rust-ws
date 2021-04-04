@@ -14,6 +14,8 @@ use start_connection::start_connection as start_connection_route;
 async fn main() -> std::io::Result<()> {
     let chat_server = Lobby::default().start();
 
+    println!("Server listening on port 8080!");
+
     HttpServer::new(move || {
         App::new()
             .service(start_connection_route)

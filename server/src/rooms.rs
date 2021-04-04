@@ -56,8 +56,8 @@ impl ChatRoom {
     }
 
     /// Removes a client from the list of typing clients.
-    pub fn remove_typing_client(&mut self, client_id: &Uuid) {
-        self.typing_clients.remove(client_id);
+    pub fn remove_typing_client(&mut self, client_id: &Uuid) -> bool {
+        self.typing_clients.remove(client_id)
     }
 
     /// Returns a list of all clients (id, username) who are currently typing

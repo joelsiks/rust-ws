@@ -29,6 +29,13 @@ impl Default for Lobby {
             ChatRoom::new(default_room_id, "Default room".to_string(), 10),
         );
 
+        let joels_room_id = Uuid::new_v4();
+
+        lobby.rooms.insert(
+            joels_room_id,
+            ChatRoom::new(joels_room_id, "Joel's room".to_string(), 10),
+        );
+
         lobby
     }
 }
@@ -161,29 +168,38 @@ impl Handler<Disconnect> for Lobby {
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         if self.sessions.remove(&msg.self_id).is_some() {
-            // Get the username from the current room.
-            let username = self
-                .rooms
-                .get(&msg.room_id)
-                .unwrap()
-                .get_username(&msg.self_id)
-                .unwrap();
+            // Get a mutable reference to the current room.
+            let current_room = self.rooms.get_mut(&msg.room_id).unwrap();
+
+            // Clone the username from the current room.
+            let username = current_room.get_username(&msg.self_id).unwrap().clone();
+
+            // Remove the client from the current room.
+            current_room.remove_client(&msg.self_id);
+
+            // If the client was typing, send out a message that they've stopped
+            // typing to all clients.
+            if current_room.remove_typing_client(&msg.self_id) {
+                self.send_to_everyone(
+                    &msg.room_id,
+                    &serde_json::to_string(&Output::Typing(TypingOutput::new(
+                        TypingInput::Stopped,
+                        UserOutput::new(msg.self_id.clone(), &username),
+                    )))
+                    .unwrap(),
+                );
+            }
 
             // Send message to all other clients in the same room that the
-            // clien thas disconnected.
-            self.send_to_everyone_except_self(
+            // client has disconnected.
+            self.send_to_everyone(
                 &msg.room_id,
-                &msg.self_id,
                 &serde_json::to_string(&Output::UserLeft(UserLeftOutput::new(
                     msg.self_id,
-                    username,
+                    &username,
                 )))
                 .unwrap(),
             );
-
-            if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
-                lobby.remove_client(&msg.self_id);
-            }
         }
     }
 }
@@ -198,7 +214,9 @@ impl Handler<Typing> for Lobby {
         // Add or remove the client from the typing clients in the room.
         match msg.status {
             TypingInput::Started => current_room.add_typing_client(&msg.id),
-            TypingInput::Stopped => current_room.remove_typing_client(&msg.id),
+            TypingInput::Stopped => {
+                current_room.remove_typing_client(&msg.id);
+            }
         }
 
         // Get the username from the current room.

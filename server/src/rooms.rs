@@ -1,5 +1,5 @@
-use crate::proto::MessageOutput;
-use std::collections::HashMap;
+use crate::proto::{MessageOutput, UserOutput};
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Used to represent a chat room which multiple clients can connect to and
@@ -16,6 +16,9 @@ pub struct ChatRoom {
     /// Maps uuid to username for all connected clients.
     pub clients: HashMap<Uuid, String>,
 
+    /// Clients that are currently typing in the chat room.
+    pub typing_clients: HashSet<Uuid>,
+
     /// Chat history.
     pub history: Vec<MessageOutput>,
 }
@@ -27,6 +30,7 @@ impl ChatRoom {
             name,
             max_clients,
             clients: HashMap::new(),
+            typing_clients: HashSet::new(),
             history: Vec::new(),
         }
     }
@@ -44,5 +48,26 @@ impl ChatRoom {
     /// Retrieves a username from the (id -> username) client hashmap.
     pub fn get_username(&self, client_id: &Uuid) -> Option<&String> {
         self.clients.get(client_id)
+    }
+
+    /// Adds a client to the list of typing clients.
+    pub fn add_typing_client(&mut self, client_id: &Uuid) {
+        self.typing_clients.insert(client_id.clone());
+    }
+
+    /// Removes a client from the list of typing clients.
+    pub fn remove_typing_client(&mut self, client_id: &Uuid) {
+        self.typing_clients.remove(client_id);
+    }
+
+    /// Returns a list of all clients (id, username) who are currently typing
+    /// in the chat room.
+    pub fn get_typing_clients(&self) -> Vec<UserOutput> {
+        self.typing_clients
+            .iter()
+            .map(|client_id| {
+                UserOutput::new(client_id.clone(), self.get_username(client_id).unwrap())
+            })
+            .collect()
     }
 }

@@ -104,7 +104,7 @@ impl Handler<Join> for Lobby {
         if self.rooms.get(&msg.lobby_id).is_none() {
             self.rooms.insert(
                 msg.lobby_id.clone(),
-                ChatRoom::new(msg.lobby_id.clone(), String::from("test_lobby"), 10),
+                ChatRoom::new(msg.lobby_id.clone(), format!("{}'s room", msg.username), 10),
             );
         }
 
@@ -137,6 +137,8 @@ impl Handler<Join> for Lobby {
             .iter()
             .map(|(client_id, client_name)| UserOutput::new(client_id.clone(), client_name))
             .collect();
+        // Get all clients that are currently typing.
+        let typing_clients = current_room.get_typing_clients();
 
         // Send the client information that the join was successful, along with
         // information about other connected clients and the history of the
@@ -146,6 +148,7 @@ impl Handler<Join> for Lobby {
                 UserOutput::new(msg.self_id, &msg.username),
                 connected_clients,
                 room_chat_history,
+                typing_clients,
             )))
             .unwrap(),
             &msg.self_id,
@@ -189,20 +192,26 @@ impl Handler<Typing> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: Typing, _: &mut Context<Self>) {
-        // Get the username from the current room.
-        let username = self
-            .rooms
-            .get(&msg.room_id)
-            .unwrap()
-            .get_username(&msg.id)
-            .unwrap();
+        // Get a mutable reference to the current room.
+        let current_room = self.rooms.get_mut(&msg.room_id).unwrap();
 
+        // Add or remove the client from the typing clients in the room.
+        match msg.status {
+            TypingInput::Started => current_room.add_typing_client(&msg.id),
+            TypingInput::Stopped => current_room.remove_typing_client(&msg.id),
+        }
+
+        // Get the username from the current room.
+        let username = current_room.get_username(&msg.id).unwrap();
+
+        // Construct the message to send out to all other users.
         let message = serde_json::to_string(&Output::Typing(TypingOutput::new(
             msg.status,
             UserOutput::new(msg.id, username),
         )))
         .unwrap();
 
+        // Echo to all other users that the client is typing.
         self.send_to_everyone_except_self(&msg.room_id, &msg.id, &message);
     }
 }

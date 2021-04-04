@@ -109,6 +109,7 @@ pub struct JoinedOutput {
     pub user: UserOutput,
     pub others: Vec<UserOutput>,
     pub messages: Vec<MessageOutput>,
+    pub typing: Vec<UserOutput>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -180,11 +181,17 @@ impl RoomsOutput {
 }
 
 impl JoinedOutput {
-    pub fn new(user: UserOutput, others: Vec<UserOutput>, messages: Vec<MessageOutput>) -> Self {
+    pub fn new(
+        user: UserOutput,
+        others: Vec<UserOutput>,
+        messages: Vec<MessageOutput>,
+        typing: Vec<UserOutput>,
+    ) -> Self {
         JoinedOutput {
             user,
             others,
             messages,
+            typing,
         }
     }
 }

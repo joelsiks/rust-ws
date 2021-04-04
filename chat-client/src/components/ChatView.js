@@ -1,5 +1,5 @@
 
-import React, { Component } from "react";
+import React, { Component, createRef } from "react";
 import { Redirect } from "react-router-dom";
 
 import Dropdown from 'react-bootstrap/Dropdown';
@@ -15,6 +15,17 @@ function GetUTCComponents(utcString) {
     return [d.getHours(), d.getMinutes(), d.getSeconds()];
 }
 
+function UtcToTimestamp(utcString, stampType) {
+    let components = GetUTCComponents(utcString);
+    let timestamp = `${String(components[0]).padStart(2, '0')}:${String(components[1]).padStart(2, '0')}`;
+
+    if (stampType == "full") {
+        return timestamp + `:${String(components[2]).padStart(2, '0')}`;
+    } else {
+        return timestamp;
+    }
+}
+
 class ChatView extends Component {
 
     constructor(props) {
@@ -23,6 +34,8 @@ class ChatView extends Component {
         // Will be set to false if we are ever disconnected / does not manage
         // to connect, and set to true when we manage to connect.
         this.connected = false;
+
+        this.messageBox = createRef();
 
         let username = "";
 
@@ -39,8 +52,9 @@ class ChatView extends Component {
             rooms: [],
             selectedRoom: "", // The ID of the selected room.
             currentMessage: "",
-            receivedMessages: [],
+            messages: [],
             peerClients: [],
+            typingClients: [],
         };
 
         this.checkWsConnection = this.checkWsConnection.bind(this);
@@ -48,13 +62,16 @@ class ChatView extends Component {
         this.handleExitRoom = this.handleExitRoom.bind(this);
         this.handleJoinRoom = this.handleJoinRoom.bind(this);
 
-        this.addToReceivedMessages = this.addToReceivedMessages.bind(this);
+        this.addToMessages = this.addToMessages.bind(this);
+        this.sendStartedTyping = this.sendStartedTyping.bind(this);
+        this.sendStoppedTyping = this.sendStoppedTyping.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
         this.handleMessageInput = this.handleMessageInput.bind(this);
         this.handleWsMessage = this.handleWsMessage.bind(this);
         this.handleSendMessage = this.handleSendMessage.bind(this);
         this.renderMessages = this.renderMessages.bind(this);
         this.renderPeers = this.renderPeers.bind(this);
+        this.renderTypingClients = this.renderTypingClients.bind(this);
     }
 
     // Initial timeout duration for the WebSocket.
@@ -66,8 +83,15 @@ class ChatView extends Component {
         if (!this.state.redirectToLogin) this.connectToWs();
     }
 
+    componentDidUpdate() {
+        // Scroll the message box to the bottom.
+        if (this.messageBox.current) {
+            this.messageBox.current.scrollTo({ top: this.messageBox.current.scrollHeight, behavior: 'smooth' })
+        }
+    }
+
     connectToWs() {
-        let ws = new WebSocket("ws://localhost:8080/ws/");
+        let ws = new WebSocket("ws://192.168.1.85:8080/ws/");
         let that = this;
         var connectInterval;
 
@@ -77,6 +101,18 @@ class ChatView extends Component {
 
             that.webSocketTimeout = 250;
             clearTimeout(connectInterval);
+
+            // If we already have a username and the user has selected a room,
+            // we immediately send the join room message and stay on our view.
+            if (this.state.username != "" && this.state.selectedRoom != "") {
+                this.handleJoinRoom(this.state.selectedRoom);
+
+                // Add reconnected message.
+                this.addToMessages({
+                    type: "info",
+                    info: "Reconnected.",
+                })
+            }
         }
 
         ws.onclose = e => {
@@ -98,7 +134,7 @@ class ChatView extends Component {
 
             if (this.connected === true) {
                 // Add to user messages that we have been disconnected and are trying to reconnect.
-                this.addToReceivedMessages({
+                this.addToMessages({
                     type: "info",
                     info: "Disconnected from server. Trying to reconnect..."
                 });
@@ -138,15 +174,16 @@ class ChatView extends Component {
     handleExitRoom(event) {
         event.preventDefault();
 
-        this.setState({ selectedRoom: "" })
+        // Reset the selected room and any received messages in that room.
+        this.setState({ selectedRoom: "", messages: [] });
+
+        // Send the leave status to the server.
         this.state.ws.send(JSON.stringify({
             type: "leave",
         }));
     }
 
     handleJoinRoom(roomId) {
-        console.log("Joining room: " + roomId);
-
         this.state.ws.send(JSON.stringify({
             type: "join",
             payload: {
@@ -158,10 +195,24 @@ class ChatView extends Component {
         this.setState({ selectedRoom: roomId });
     }
 
-    addToReceivedMessages(message) {
+    addToMessages(message) {
         this.setState({
-            receivedMessages: [...this.state.receivedMessages, message]
+            messages: [...this.state.messages, message]
         });
+    }
+
+    sendStartedTyping() {
+        this.state.ws.send(JSON.stringify({
+            type: "typing",
+            payload: "started",
+        }));
+    }
+
+    sendStoppedTyping() {
+        this.state.ws.send(JSON.stringify({
+            type: "typing",
+            payload: "stopped",
+        }));
     }
 
     handleMessageInput(event) {
@@ -170,7 +221,14 @@ class ChatView extends Component {
         if (event.key === "Enter") {
             // Send the message.
             this.handleSendMessage(event);
+
         } else {
+            if (this.state.currentMessage === "") {
+                this.sendStartedTyping();
+            } else if (event.target.value === "") {
+                this.sendStoppedTyping();
+            }
+
             this.setState({ currentMessage: event.target.value });
         }
     }
@@ -181,60 +239,42 @@ class ChatView extends Component {
 
             switch (data.type) {
                 case "rooms":
-
-                    data.payload.rooms.sort((a, b) => {
-                        a = Number(a.name.replace("Room ", ""))
-                        b = Number(b.name.replace("Room ", ""))
-
-                        if (a < b) {
-                            return -1;
-                        } else if (a > b) {
-                            return 1;
-                        } else {
-                            return 0;
-                        }
-                    });
-
                     this.setState({ rooms: data.payload.rooms });
-                    console.log(this.state.rooms[0]);
                     break;
 
                 // The client has successfully joined a chatroom.
                 case "joined":
-
-                    console.log(data);
                     // Update the state with the peer clients and reset any received messages.
                     this.setState({
                         peerClients: data.payload.others.filter(user => user.name !== this.state.username),
-                        receivedMessages: [],
+                        typingClients: data.payload.typing,
+                        messages: [],
                     });
 
                     data.payload.messages.forEach(message => {
                         let { createdAt, user, body } = message;
-                        let timeComponents = GetUTCComponents(createdAt);
-                        let timestamp = `${String(timeComponents[0]).padStart(2, '0')}:${String(timeComponents[1]).padStart(2, '0')}`;
-                        let full_timestamp = timestamp + `:${String(timeComponents[2]).padStart(2, '0')}`;
 
-                        this.addToReceivedMessages({
+                        this.addToMessages({
                             type: "message",
-                            full_timestamp: full_timestamp,
-                            timestamp: timestamp,
+                            full_timestamp: UtcToTimestamp(createdAt, "full"),
+                            timestamp: UtcToTimestamp(createdAt, "normal"),
                             sender: user.name,
                             message: body,
                         });
 
                     });
 
-                    this.addToReceivedMessages({
-                        type: "info",
-                        info: `You have now entered the chatroom. There are ${data.payload.others.length} ${data.payload.others.length > 1 ? "users" : "user"} in the chatroom: ${data.payload.others.map(e => e.name).join(", ")}`,
-                    });
+                    let userCount = data.payload.others.length;
 
+                    this.addToMessages({
+                        type: "info",
+                        info: `You have entered the room. There ${userCount > 1 ? "are" : "is"} ${data.payload.others.length} ${userCount > 1 ? "users" : "user"} in the chatroom: ${data.payload.others.map(e => e.name).join(", ")}`,
+                    });
                     break;
 
                 // Another client has joined the chatroom.
                 case "user-joined":
-                    this.addToReceivedMessages({
+                    this.addToMessages({
                         type: "info",
                         info: `${data.payload.user.name} has joined the chatroom!`,
                     });
@@ -247,14 +287,10 @@ class ChatView extends Component {
                 case "posted":
                 case "user-posted":
                     let { createdAt, user, body } = data.payload.message;
-                    let timeComponents = GetUTCComponents(createdAt);
-                    let timestamp = `${String(timeComponents[0]).padStart(2, '0')}:${String(timeComponents[1]).padStart(2, '0')}`;
-                    let full_timestamp = timestamp + `:${String(timeComponents[2]).padStart(2, '0')}`;
-
-                    this.addToReceivedMessages({
+                    this.addToMessages({
                         type: "message",
-                        full_timestamp: full_timestamp,
-                        timestamp: timestamp,
+                        full_timestamp: UtcToTimestamp(createdAt, "full"),
+                        timestamp: UtcToTimestamp(createdAt, "normal"),
                         sender: user.name,
                         message: body,
                     });
@@ -271,10 +307,21 @@ class ChatView extends Component {
                         peerClients: this.state.peerClients.filter(client => client.id !== id)
                     });
 
-                    this.addToReceivedMessages({
+                    this.addToMessages({
                         type: "info",
                         info: `${name} left the chatroom.`,
                     })
+                    break;
+
+                case "user-typing":
+                    let { status } = data.payload;
+
+                    console.log(status, data.payload.user);
+                    if (status === "started") {
+                        this.setState({ typingClients: [...this.state.typingClients, data.payload.user] });
+                    } else if (status === "stopped") {
+                        this.setState({ typingClients: this.state.typingClients.filter(user => user.id !== data.payload.user.id) });
+                    }
                     break;
 
                 default:
@@ -287,6 +334,9 @@ class ChatView extends Component {
 
     handleSendMessage(event) {
         event.preventDefault();
+
+        // Send to the server that we've stopped typing.
+        this.sendStoppedTyping();
 
         // TODO: Handle not connected properly. Maybe add state variable 
         // "connected"?
@@ -311,7 +361,7 @@ class ChatView extends Component {
     renderMessages() {
         let key = 0;
 
-        return this.state.receivedMessages.map(message => {
+        return this.state.messages.map(message => {
             key++;
 
             if (message.type === "info") {
@@ -344,6 +394,18 @@ class ChatView extends Component {
         }
     }
 
+    renderTypingClients() {
+        let usernames = this.state.typingClients.map(client => client.name);
+
+        if (usernames.length > 5) {
+            return "Multiple people are typing...";
+        } else if (usernames.length > 1) {
+            return usernames.join(" and ") + " are typing...";
+        } else if (usernames.length === 1) {
+            return usernames.join("") + " is typing...";
+        }
+    }
+
     render() {
         // Redirect back to the login view if the username isn't defined.
         if (this.state.redirectToLogin) {
@@ -356,15 +418,17 @@ class ChatView extends Component {
                 <div className="chat-box">
                     <Navbar username={this.state.username} connected={true} handleLogout={this.handleLogout} renderPeers={this.renderPeers} exitRoom={this.handleExitRoom} />
 
-                    <div id="message-box">
+                    <div id="message-box" ref={this.messageBox}>
                         {this.renderMessages()}
                     </div>
 
-                    <form id="message-form" className="d-flex">
+                    {this.state.typingClients.length > 0 && <div className="typing-clients">{this.renderTypingClients()}</div>}
+
+                    <form id="message-form" className="d-flex bg-light">
                         <input id="message-input" className="form-control me-2" type="text" placeholder="Enter message.." aria-label="message" value={this.state.currentMessage} onChange={this.handleMessageInput} />
-                        <button id="message-send-btn" className="btn btn-primary" type="submit" onClick={this.handleSendMessage}>Send message</button>
+                        <button id="message-send-btn" className="btn btn-primary" type="submit" onClick={this.handleSendMessage}>Send</button>
                     </form>
-                </div>
+                </div >
             );
         } else {
             return (

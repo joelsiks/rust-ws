@@ -12,7 +12,7 @@ class ChatView extends Component {
     renderDropdownPeers() {
         if (this.props.connected) {
             return (
-                <DropdownButton id="users-navbar-btn" title="Connected users">
+                <DropdownButton id="users-navbar-btn" title="Users">
                     {this.props.renderPeers()}
                 </DropdownButton>
             );

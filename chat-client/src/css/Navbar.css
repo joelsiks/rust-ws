@@ -1,7 +1,17 @@
 
+.Navbar {
+    height: 60px;
+}
+
+@media only screen and (max-width: 430px) {
+    .navbar-brand {
+        display: none !important;
+    }
+}
+
 #navbar-username {
     font-size: 18px;
-    color: grey;
+    color: black;
 
     margin-bottom: 0px;
 

@@ -2,10 +2,12 @@
 /* Roboto Mono Font */
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
 
+.chat-box {
+    height: 100%;
+}
+
 #message-form {
-    background-color: #F8F9FA;
     position: fixed;
-    bottom: 4px;
     padding-left: 8px !important;
     padding-right: 8px !important;
     padding-bottom: 10px;
@@ -16,27 +18,25 @@
 }
 
 #message-input {
-    width: 85%;
+    width: 82%;
 }
 
 #message-send-btn {
-    width: 15%;
-}
-
-@media only screen and (max-width: 1100px) {
-    #message-input {
-        width: 70%;
-    }
-
-    #message-send-btn {
-        width: 30%;
-    }
+    margin-left: 10px;
+    width: 18%;
 }
 
 #message-box {
+    height: calc(100% - 60px - 60px);
     padding-top: 10px;
-    height: calc(100vh - 16px - 100px);
     overflow-y: scroll;
+    line-break: anywhere;
+}
+
+#message-form {
+    position: absolute;
+    bottom: 0;
+    height: 60px;
 }
 
 .message {
@@ -47,4 +47,17 @@
 
 .message-info {
     color: grey;
+}
+
+.typing-clients {
+    font-family: 'Roboto Mono', monospace;
+    border-radius: 4px;
+    padding-top: 4px;
+    padding-right: 20px;
+    background-color: rgb(224, 224, 224);
+    color: rgb(139, 139, 139);
+    position: absolute;
+    bottom: 56px;
+    padding-left: 10px;
+    padding-bottom: 8px;
 }
